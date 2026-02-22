@@ -1,336 +1,120 @@
-# 🎨 System Architecture Diagrams
+# 🚆 Train Management Multi-Agent System — Architecture
 
-## 🏗️ Overall System Architecture
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│                        USER INTERFACE                           │
-│    (CLI / API / Dashboard / Mobile App - Extensible)            │
-│                                                                 │
+│                     USER INTERFACE                               │
+│              (CLI / API / Dashboard)                              │
 └────────────────────────┬────────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│                    PLANNER AGENT (Master Brain)                 │
-│                          Gemini Pro                             │
-│                                                                 │
-│  • Request Analysis      • Task Decomposition                   │
-│  • Agent Selection       • State Management                     │
-│  • Plan Refinement       • Coordination                         │
-│                                                                 │
+│               TRAIN MANAGEMENT ORCHESTRATOR                      │
+│                  (LangGraph State Machine)                        │
+│                                                                  │
+│  • Sequential pipeline control                                   │
+│  • Conditional disaster routing                                  │
+│  • Global state management                                       │
+│  • Re-prediction after reroute                                   │
+└──────┬──────────┬──────────────┬──────────────┬─────────────────┘
+       │          │              │              │
+       ▼          ▼              ▼              ▼
+┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐
+│Scheduling│ │  Time    │ │ Arrival  │ │  Disaster    │
+│  Agent   │ │Prediction│ │Monitoring│ │  Recovery    │
+│          │ │  Agent   │ │  Agent   │ │  Agent       │
+│ Route &  │ │ ETA calc │ │ Real-time│ │ Re-routing & │
+│ Platform │ │ Math+LLM │ │ tracking │ │ Recovery     │
+└──────────┘ └──────────┘ └──────────┘ └──────────────┘
+```
+
+## Pipeline Flow
+
+```
+User Request
+    ↓
+┌──────────────────────┐
+│ 1. Scheduling Agent  │  Assigns route, platform, stops
+└──────────┬───────────┘
+           ↓
+┌──────────────────────┐
+│ 2. Time Prediction   │  Calculates ETA (distance/speed + halts
+│    Agent             │  + weather + congestion adjustments)
+└──────────┬───────────┘
+           ↓
+┌──────────────────────┐
+│ 3. Arrival Monitoring│  Compares predicted vs actual position
+│    Agent             │
+└──────────┬───────────┘
+           ↓
+      ┌─── Delay > Threshold? ───┐
+      │ YES                      │ NO
+      ↓                          ↓
+┌──────────────────────┐    ┌────────┐
+│ 4. Disaster Recovery │    │  END   │
+│    Agent             │    │ (Done) │
+└──────────┬───────────┘    └────────┘
+           ↓
+┌──────────────────────┐
+│ Re-Predict (Agent 2) │  Updated ETA after reroute
+└──────────┬───────────┘
+           ↓
+      ┌────────┐
+      │  END   │
+      └────────┘
+```
+
+## Agent Details
+
+### 1. Scheduling Agent (`scheduling_agent.py`)
+- **Inputs**: Train ID, source/destination, track & platform availability, maintenance status
+- **Outputs**: Assigned route, platform number, departure time, stops & halt durations
+- **Constraints**: No track conflicts, no platform clashes, maintenance clearance
+
+### 2. Time Prediction Agent (`time_prediction_agent.py`)
+- **Formula**: `(distance/speed) × weather × congestion × track_condition + halt_times`
+- **Outputs**: Predicted arrival time, delay probability %, confidence score
+- **Factors**: Weather (clear→storm), congestion (low→very_high), track condition (excellent→poor)
+
+### 3. Arrival Monitoring Agent (`arrival_monitoring_agent.py`)
+- **Inputs**: Predicted arrival, GPS location, current speed, timestamp
+- **Outputs**: Status (On-Time/Delayed/Not Arrived), delay minutes, risk level
+- **Trigger**: Flags disaster recovery if delay > 30min threshold
+
+### 4. Disaster Recovery Agent (`disaster_recovery_agent.py`)
+- **Triggered by**: Breakdown, track damage, flood, weather, major delay
+- **Outputs**: Root cause, alternate route, new schedule, affected trains, recovery ETA
+- **Priority**: Safety over speed — never hallucinate reasons
+
+## Data Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      INPUT                                       │
+│  train_id, source, destination, speed, distance, weather, etc.  │
 └────────────────────────┬────────────────────────────────────────┘
-                         │
-                         ▼
+                         ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│                  LANGGRAPH ORCHESTRATOR                         │
-│                                                                 │
-│  • Workflow Management   • State Routing                        │
-│  • Parallel Execution    • Dependency Handling                  │
-│  • Error Recovery        • Result Synthesis                     │
-│                                                                 │
-└──────┬─────────┬──────────────┬──────────────┬─────────────────┘
-       │         │              │              │
-       ▼         ▼              ▼              ▼
-┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-│Operations│ │Passenger │ │  Crowd   │ │  Alert   │
-│  Agent   │ │  Agent   │ │  Agent   │ │  Agent   │
-│          │ │          │ │          │ │          │
-│ Gemini   │ │ Gemini   │ │ Gemini   │ │ Gemini   │
-│  Pro     │ │  Pro     │ │  Pro     │ │  Pro     │
-│          │ │  + RAG   │ │          │ │          │
-└────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
-     │            │             │             │
-     └────────────┴─────────────┴─────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│                   TOOLS & DATA LAYER                            │
-│                                                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │     RAG      │  │    Tools     │  │  External    │         │
-│  │   System     │  │  & Services  │  │    APIs      │         │
-│  │              │  │              │  │              │         │
-│  │ • ChromaDB   │  │ • Schedule   │  │ • Twilio     │         │
-│  │ • Embeddings │  │ • Simulator  │  │ • SMTP       │         │
-│  │ • Retrieval  │  │ • Predictor  │  │ • Telegram   │         │
-│  │ • Vector DB  │  │ • Analyzer   │  │ • Custom     │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## 🔄 Request Flow Diagram
-
-```
-START
-  │
-  ▼
-┌─────────────────────┐
-│ User Request Comes  │
-│ "Train delayed"     │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ Planner Agent       │
-│ Analyzes Request    │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ Creates Plan        │
-│ {                   │
-│   subtasks: [...],  │
-│   agents: [...],    │
-│   order: seq/par    │
-│ }                   │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ LangGraph Routes    │
-│ Based on Plan       │
-└──────────┬──────────┘
-           │
-           ├──────────────────┬──────────────┬────────────┐
-           ▼                  ▼              ▼            ▼
-    ┌─────────┐        ┌─────────┐    ┌─────────┐  ┌─────────┐
-    │Operations│       │Passenger│    │  Crowd  │  │  Alert  │
-    │  Agent  │       │  Agent  │    │  Agent  │  │  Agent  │
-    └────┬────┘       └────┬────┘    └────┬────┘  └────┬────┘
-         │                 │              │            │
-         │ Executes        │ RAG Query    │ Predicts   │ Sends
-         │ Analysis        │ & Answer     │ Capacity   │ Alerts
-         │                 │              │            │
-         └─────────────────┴──────────────┴────────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │ Synthesize      │
-                  │ All Results     │
-                  └────────┬────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │ Check if More   │
-                  │ Work Needed?    │
-                  └────────┬────────┘
-                           │
-                    ┌──────┴──────┐
-                    │             │
-                   Yes           No
-                    │             │
-                    ▼             ▼
-              Back to Planner   END
-              (Refine Plan)     (Return Results)
-```
-
-## 🧩 Agent Interaction Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      PLANNER AGENT                              │
-│                     (Master Coordinator)                         │
-│                                                                 │
-│  Global State: {                                                │
-│    request, context, plan,                                      │
-│    task_results, iteration                                      │
-│  }                                                              │
-└───┬─────────────┬─────────────┬─────────────┬─────────────────┘
-    │             │             │             │
-    │ Delegates   │ Delegates   │ Delegates   │ Delegates
-    │             │             │             │
-    ▼             ▼             ▼             ▼
-┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
-│Operations│ │Passenger│ │  Crowd  │ │  Alert  │
-│         │ │         │ │         │ │         │
-│  Uses:  │ │  Uses:  │ │  Uses:  │ │  Uses:  │
-│ ────────│ │─────────│ │─────────│ │─────────│
-│ • Train │ │ • RAG   │ │ • Booking│ │• Notif. │
-│  Sched. │ │  System │ │  Data   │ │ Service│
-│ • Delay │ │ • Vector│ │ • Crowd │ │• Twilio │
-│  Sim.   │ │  Store  │ │  Pred.  │ │• SMTP  │
-│         │ │ • Query │ │ • Hist. │ │• Push  │
-│         │ │  Engine │ │  Data   │ │        │
-└────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
-     │           │           │           │
-     │ Results   │ Results   │ Results   │ Results
-     │           │           │           │
-     └───────────┴───────────┴───────────┘
-                 │
-                 ▼
-         ┌──────────────┐
-         │  Synthesize  │
-         │   & Return   │
-         └──────────────┘
-```
-
-## 📊 Data Flow Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      INPUT LAYER                                │
-├─────────────────────────────────────────────────────────────────┤
-│ • User Requests                                                 │
-│ • System Events (delay, cancellation)                           │
-│ • Real-time Data Streams                                        │
-│ • Admin Commands                                                │
+│                  ORCHESTRATOR STATE                               │
+│  schedule_result → prediction_result → monitoring_result         │
+│                                    → disaster_result (if needed) │
 └────────────────────────┬────────────────────────────────────────┘
-                         │
-                         ▼
+                         ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                   PROCESSING LAYER                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────┐      ┌──────────┐      ┌──────────┐             │
-│  │ Request  │──────▶│ Planning │──────▶│ Routing │             │
-│  │ Analysis │      │ & Tasks  │      │ & Exec.  │             │
-│  └──────────┘      └──────────┘      └────┬─────┘             │
-│                                            │                    │
-│                    ┌───────────────────────┤                    │
-│                    │                       │                    │
-│              ┌─────▼─────┐          ┌─────▼─────┐             │
-│              │ Agent 1,2 │          │ Agent 3,4 │             │
-│              │ Sequential│          │ Parallel  │             │
-│              └─────┬─────┘          └─────┬─────┘             │
-│                    │                       │                    │
-│                    └───────────┬───────────┘                    │
-│                                │                                │
-│                          ┌─────▼─────┐                         │
-│                          │Synthesize │                         │
-│                          │ Results   │                         │
-│                          └─────┬─────┘                         │
-└────────────────────────────────┼─────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    OUTPUT LAYER                                 │
-├─────────────────────────────────────────────────────────────────┤
-│ • Structured JSON Response                                      │
-│ • Action Triggers (alerts, notifications)                       │
-│ • Database Updates                                              │
-│ • External API Calls                                            │
-│ • Logs & Analytics                                              │
+│                      OUTPUT                                      │
+│  Structured JSON with all agent results + route_status           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## 🗄️ RAG System Architecture
+## API Endpoints
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    KNOWLEDGE BASE                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
-│  │Timetables│  │ Policies │  │  Refund  │  │  Routes  │      │
-│  │  .json   │  │  .txt    │  │  Rules   │  │  .json   │      │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘      │
-│       │             │             │             │              │
-└───────┼─────────────┼─────────────┼─────────────┼──────────────┘
-        │             │             │             │
-        └─────────────┴─────────────┴─────────────┘
-                      │
-                      ▼
-        ┌─────────────────────────────┐
-        │   EMBEDDING MODEL            │
-        │ (sentence-transformers)      │
-        │                              │
-        │ Text → Vector Embeddings     │
-        └─────────────┬────────────────┘
-                      │
-                      ▼
-        ┌─────────────────────────────┐
-        │      VECTOR STORE            │
-        │       (ChromaDB)             │
-        │                              │
-        │ • Persistent Storage         │
-        │ • Fast Similarity Search     │
-        │ • Metadata Filtering         │
-        └─────────────┬────────────────┘
-                      │
-                      ▼
-        ┌─────────────────────────────┐
-        │   RETRIEVAL ENGINE           │
-        │                              │
-        │ Query → Relevant Docs        │
-        │ • Top-K Selection            │
-        │ • Relevance Scoring          │
-        └─────────────┬────────────────┘
-                      │
-                      ▼
-        ┌─────────────────────────────┐
-        │   PASSENGER AGENT            │
-        │    (Gemini + RAG)            │
-        │                              │
-        │ Context + Query → Answer     │
-        └─────────────────────────────┘
-```
-
-## 🔐 Security Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                   SECURITY LAYERS                               │
-└─────────────────────────────────────────────────────────────────┘
-
-Layer 1: Authentication & Authorization
-┌─────────────────────────────────────────────────────────────────┐
-│ • API Key Management (Environment Variables)                    │
-│ • Role-Based Access Control (Future)                            │
-│ • Token-Based Authentication (Future)                           │
-└─────────────────────────────────────────────────────────────────┘
-
-Layer 2: Data Protection
-┌─────────────────────────────────────────────────────────────────┐
-│ • Encrypted API Communications (HTTPS)                          │
-│ • PII Data Anonymization                                        │
-│ • Secure Storage (Environment Variables)                        │
-└─────────────────────────────────────────────────────────────────┘
-
-Layer 3: Input Validation
-┌─────────────────────────────────────────────────────────────────┐
-│ • Request Sanitization                                          │
-│ • Parameter Validation                                          │
-│ • Injection Prevention                                          │
-└─────────────────────────────────────────────────────────────────┘
-
-Layer 4: Monitoring & Auditing
-┌─────────────────────────────────────────────────────────────────┐
-│ • Request Logging                                               │
-│ • Error Tracking                                                │
-│ • Usage Analytics                                               │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## 📈 Scalability Architecture (Future)
-
-```
-                    ┌──────────────┐
-                    │ Load Balancer│
-                    └──────┬───────┘
-                           │
-          ┌────────────────┼────────────────┐
-          │                │                │
-          ▼                ▼                ▼
-    ┌──────────┐    ┌──────────┐    ┌──────────┐
-    │Instance 1│    │Instance 2│    │Instance N│
-    │          │    │          │    │          │
-    │ • Agents │    │ • Agents │    │ • Agents │
-    │ • RAG    │    │ • RAG    │    │ • RAG    │
-    └────┬─────┘    └────┬─────┘    └────┬─────┘
-         │               │               │
-         └───────────────┼───────────────┘
-                         │
-            ┌────────────┼────────────┐
-            │            │            │
-            ▼            ▼            ▼
-      ┌─────────┐  ┌─────────┐  ┌─────────┐
-      │  Redis  │  │Database │  │  Queue  │
-      │  Cache  │  │(Shared) │  │ RabbitMQ│
-      └─────────┘  └─────────┘  └─────────┘
-
-**Note**: These are conceptual diagrams. For production deployment, adjust based on your infrastructure and requirements.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/train/schedule` | POST | Schedule a train |
+| `/api/train/predict` | POST | Predict arrival time |
+| `/api/train/monitor` | POST | Monitor arrival |
+| `/api/train/disaster` | POST | Trigger disaster recovery |
+| `/api/train/full-flow` | POST | Full 4-agent pipeline |
+| `/api/health` | GET | System health check |
+| `/api/demo/scenarios` | GET | Available demo scenarios |

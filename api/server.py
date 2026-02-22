@@ -1,9 +1,11 @@
 """
-FastAPI Server for Railway Intelligence Multi-Agent System
-Provides REST API endpoints for frontend interaction
+FastAPI Server for Train Management Multi-Agent System
+Provides REST API endpoints for the 4-agent train management pipeline
 """
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 import asyncio
@@ -14,56 +16,40 @@ import os
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 
-# Import orchestrator and RAG lazily to avoid blocking startup
-orchestrator_module = None
-rag_module = None
+# Lazy imports
+train_orchestrator_module = None
 
-def lazy_import_orchestrator():
-    """Lazy import of orchestrator to avoid blocking startup"""
-    global orchestrator_module
-    if orchestrator_module is None:
-        from orchestrator import RailwayOrchestrator
-        orchestrator_module = RailwayOrchestrator
-    return orchestrator_module
+def lazy_import_train_orchestrator():
+    global train_orchestrator_module
+    if train_orchestrator_module is None:
+        from orchestrator import TrainManagementOrchestrator
+        train_orchestrator_module = TrainManagementOrchestrator
+    return train_orchestrator_module
 
-def lazy_import_rag():
-    """Lazy import of RAG system to avoid blocking startup"""
-    global rag_module
-    if rag_module is None:
-        try:
-            from rag.rag_system import RAGSystem
-            rag_module = RAGSystem
-        except Exception as e:
-            print(f"⚠️  Could not import RAG system: {e}")
-            rag_module = None
-    return rag_module
-
-# Initialize FastAPI app
 app = FastAPI(
-    title="Railway Intelligence Multi-Agent System API",
-    description="AI-powered railway management system with specialized agents",
-    version="1.0.0"
+    title="Train Management Multi-Agent System API",
+    description="4-Agent train management system: Scheduling, Time Prediction, Arrival Monitoring, Disaster Recovery",
+    version="2.0.0"
 )
 
-# CORS middleware for frontend
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Global instances
-orchestrator: Optional[Any] = None
-rag_system: Optional[Any] = None
+train_orchestrator: Optional[Any] = None
 active_connections: List[WebSocket] = []
+scheduled_trains: Dict[str, Any] = {}  # train_id -> full pipeline result
+pending_approvals: Dict[str, Any] = {}  # train_id -> { disaster_data, config, partial_result }
 
-# Pydantic models for request/response
-class RequestModel(BaseModel):
-    request: str
-    context: Optional[Dict[str, Any]] = {}
+# ── Pydantic Models ──
 
 class ResponseModel(BaseModel):
     success: bool
@@ -71,314 +57,417 @@ class ResponseModel(BaseModel):
     error: Optional[str] = None
     timestamp: str
 
-class TrainDelayRequest(BaseModel):
-    train_number: str
-    delay_minutes: int
-    current_location: str
-    affected_passengers: Optional[int] = 0
+class TrainScheduleRequest(BaseModel):
+    train_id: str
+    source: str
+    destination: str
+    departure_time: Optional[str] = "08:00"
 
-class PassengerQueryRequest(BaseModel):
-    query: str
-    passenger_id: Optional[str] = None
+class TrainPredictRequest(BaseModel):
+    train_id: str
+    speed_kmh: Optional[float] = 80.0
+    distance_km: Optional[float] = 500.0
+    stops: Optional[int] = 4
+    halt_duration_minutes: Optional[float] = 5.0
+    track_condition: Optional[str] = "good"
+    weather: Optional[str] = "clear"
+    congestion: Optional[str] = "low"
+    departure_time: Optional[str] = "08:00"
 
+class TrainMonitorRequest(BaseModel):
+    train_id: str
+    predicted_arrival_time: str
+    current_speed_kmh: Optional[float] = 75.0
+    remaining_distance_km: Optional[float] = None
 
-class AlertRequest(BaseModel):
-    message: str
-    recipients: List[str]
-    channels: List[str]  # sms, email, push
+class TrainDisasterRequest(BaseModel):
+    train_id: str
+    failure_type: str = "unknown"
+    current_location: Optional[str] = None
+    available_alternate_tracks: Optional[List[str]] = None
 
-# Background initialization
+class TrainFullFlowRequest(BaseModel):
+    train_id: str
+    source: str
+    destination: str
+    departure_time: Optional[str] = "08:00"
+    speed_kmh: Optional[float] = 80.0
+    distance_km: Optional[float] = 500.0
+    stops: Optional[int] = 4
+    weather: Optional[str] = "clear"
+    congestion: Optional[str] = "low"
+    current_speed_kmh: Optional[float] = 75.0
+    remaining_distance_km: Optional[float] = None
+    failure_type: Optional[str] = None
+    train_type: Optional[str] = "Express"
+
+class TrainBatchFlowRequest(BaseModel):
+    trains: List[TrainFullFlowRequest]
+
+class ApproveDisasterRequest(BaseModel):
+    train_id: str
+    option_id: int
+
+# ── Lifecycle ──
+
 async def initialize_components():
-    """Initialize heavy components in background to not block server startup"""
-    global orchestrator, rag_system
-    
+    global train_orchestrator
     try:
-        # Try to initialize RAG system
-        print("📚 Loading RAG system in background...")
-        RAGSystem = lazy_import_rag()
-        if RAGSystem:
-            try:
-                rag_system = RAGSystem()
-                rag_system.initialize_data()
-                print("✅ RAG system initialized")
-            except Exception as e:
-                print(f"⚠️  RAG system initialization failed: {e}")
-                rag_system = None
-        else:
-            print("⚠️  RAG system not available")
-        
-        # Try to initialize orchestrator
-        print("🧠 Loading orchestrator in background...")
-        RailwayOrchestrator = lazy_import_orchestrator()
-        if RailwayOrchestrator:
-            orchestrator = RailwayOrchestrator()
-            print("✅ Orchestrator initialized")
-        
+        print("🚆 Loading Train Management orchestrator...")
+        TMO = lazy_import_train_orchestrator()
+        if TMO:
+            train_orchestrator = TMO()
+            print("✅ Train Management Orchestrator initialized")
     except Exception as e:
-        print(f"⚠️  Background initialization error: {e}")
-        print("   Server running with limited features")
+        print(f"⚠️  Initialization error: {e}")
 
-# Lifecycle events
 @app.on_event("startup")
 async def startup_event():
-    """Initialize system on startup"""
-    global orchestrator, rag_system
-    
-    print("🚂 Starting Railway Intelligence System API...")
-    print("⏰ Server started successfully - AI components will initialize in background")
+    print("🚆 Starting Train Management System API...")
     print("✅ API Server ready on http://localhost:8000")
-    
-    # Initialize components in background (non-blocking)
     asyncio.create_task(initialize_components())
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Cleanup on shutdown"""
-    print("🛑 Shutting down Railway Intelligence System API...")
-    # Close any active websocket connections
-    for connection in active_connections:
-        await connection.close()
+    print("🛑 Shutting down...")
+    for conn in active_connections:
+        await conn.close()
 
-# Health check endpoint
+# ── Health ──
+
 @app.get("/")
 async def root():
-    """Root endpoint - health check"""
+    """Serve dashboard"""
+    index_path = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
     return {
         "status": "online",
-        "service": "Railway Intelligence Multi-Agent System",
-        "version": "1.0.0",
+        "service": "Train Management Multi-Agent System",
+        "version": "2.0.0",
+        "dashboard": "Frontend not found. Place index.html in /frontend/",
         "timestamp": datetime.now().isoformat()
     }
 
 @app.get("/api/health")
 async def health_check():
-    """Detailed health check"""
     return {
         "status": "healthy",
-        "orchestrator": orchestrator is not None,
-        "rag_system": rag_system is not None,
+        "orchestrator": train_orchestrator is not None,
         "agents": {
-            "planner": True,
-            "operations": True,
-            "passenger": True,
-            "alert": True
+            "scheduling": True,
+            "time_prediction": True,
+            "arrival_monitoring": True,
+            "disaster_recovery": True,
         },
         "timestamp": datetime.now().isoformat()
     }
 
-# Main orchestration endpoint
-@app.post("/api/orchestrate", response_model=ResponseModel)
-async def orchestrate_request(request: RequestModel):
-    """
-    Main endpoint to process requests through the multi-agent system
-    """
+# ── Train Management Endpoints ──
+
+@app.post("/api/train/schedule", response_model=ResponseModel)
+async def schedule_train(req: TrainScheduleRequest):
+    """Schedule a train route."""
     try:
-        if not orchestrator:
-            raise HTTPException(status_code=503, detail="Orchestrator not initialized")
-        
-        # Run orchestration
-        result = orchestrator.run(request.request, request.context)
-        
+        from agents.scheduling_agent import SchedulingAgent
+        agent = SchedulingAgent()
+        result = agent.schedule_train(
+            train_id=req.train_id, source_station=req.source,
+            destination_station=req.destination, departure_time=req.departure_time,
+        )
+        return ResponseModel(success=True, data=result, timestamp=datetime.now().isoformat())
+    except Exception as e:
+        return ResponseModel(success=False, error=str(e), timestamp=datetime.now().isoformat())
+
+@app.post("/api/train/predict", response_model=ResponseModel)
+async def predict_arrival(req: TrainPredictRequest):
+    """Predict train arrival time."""
+    try:
+        from agents.time_prediction_agent import TimePredictionAgent
+        agent = TimePredictionAgent()
+        result = agent.predict_arrival(
+            train_id=req.train_id, speed_kmh=req.speed_kmh,
+            distance_km=req.distance_km, stops=req.stops,
+            halt_duration_minutes=req.halt_duration_minutes,
+            track_condition=req.track_condition, weather=req.weather,
+            congestion=req.congestion, departure_time=req.departure_time,
+        )
+        return ResponseModel(success=True, data=result, timestamp=datetime.now().isoformat())
+    except Exception as e:
+        return ResponseModel(success=False, error=str(e), timestamp=datetime.now().isoformat())
+
+@app.post("/api/train/monitor", response_model=ResponseModel)
+async def monitor_train(req: TrainMonitorRequest):
+    """Monitor train arrival status."""
+    try:
+        from agents.arrival_monitoring_agent import ArrivalMonitoringAgent
+        agent = ArrivalMonitoringAgent()
+        result = agent.monitor_arrival(
+            train_id=req.train_id,
+            predicted_arrival_time=req.predicted_arrival_time,
+            current_speed_kmh=req.current_speed_kmh,
+            remaining_distance_km=req.remaining_distance_km,
+        )
+        return ResponseModel(success=True, data=result, timestamp=datetime.now().isoformat())
+    except Exception as e:
+        return ResponseModel(success=False, error=str(e), timestamp=datetime.now().isoformat())
+
+@app.post("/api/train/disaster", response_model=ResponseModel)
+async def handle_disaster(req: TrainDisasterRequest):
+    """Trigger disaster recovery."""
+    try:
+        from agents.disaster_recovery_agent import DisasterRecoveryAgent
+        agent = DisasterRecoveryAgent()
+        result = agent.handle_disaster(
+            train_id=req.train_id, failure_type=req.failure_type,
+            current_location=req.current_location,
+            available_alternate_tracks=req.available_alternate_tracks,
+        )
+        return ResponseModel(success=True, data=result, timestamp=datetime.now().isoformat())
+    except Exception as e:
+        return ResponseModel(success=False, error=str(e), timestamp=datetime.now().isoformat())
+
+@app.post("/api/train/full-flow", response_model=ResponseModel)
+async def train_full_flow(req: TrainFullFlowRequest):
+    """Run the full 4-agent train management pipeline."""
+    try:
+        if not train_orchestrator:
+            raise HTTPException(status_code=503, detail="Train orchestrator not initialized")
+        request_dict = req.model_dump(exclude_none=True)
+        result = train_orchestrator.run(request_dict)
+        result["train_type"] = req.train_type or "Express"
+        scheduled_trains[req.train_id] = result
+        return ResponseModel(success=True, data=result, timestamp=datetime.now().isoformat())
+    except Exception as e:
+        return ResponseModel(success=False, error=str(e), timestamp=datetime.now().isoformat())
+
+@app.post("/api/train/batch-flow", response_model=ResponseModel)
+async def train_batch_flow(req: TrainBatchFlowRequest):
+    """Run the full pipeline for multiple trains. Disaster trains pause for approval."""
+    try:
+        if not train_orchestrator:
+            raise HTTPException(status_code=503, detail="Train orchestrator not initialized")
+        results = {}
+        pending_list = []
+        for train_req in req.trains:
+            request_dict = train_req.model_dump(exclude_none=True)
+            result = train_orchestrator.run(request_dict)
+            result["train_type"] = train_req.train_type or "Express"
+            scheduled_trains[train_req.train_id] = result
+            results[train_req.train_id] = result
+
+            # If disaster was triggered, store for admin approval
+            if result.get("disaster_triggered"):
+                dr = result.get("results", {}).get("disaster_recovery", {})
+                pending_approvals[train_req.train_id] = {
+                    "train_id": train_req.train_id,
+                    "config": request_dict,
+                    "disaster_data": dr,
+                    "options": dr.get("options_presented", []),
+                    "recommended_option": dr.get("recommended_option"),
+                    "root_cause": dr.get("root_cause", {}),
+                    "safety_notes": dr.get("safety_notes", ""),
+                    "created_at": datetime.now().isoformat(),
+                }
+                pending_list.append(train_req.train_id)
+                # Broadcast via WebSocket
+                await broadcast_ws({
+                    "type": "disaster_alert",
+                    "train_id": train_req.train_id,
+                    "root_cause": dr.get("root_cause", {}),
+                    "options_count": len(dr.get("options_presented", [])),
+                    "timestamp": datetime.now().isoformat(),
+                })
+
         return ResponseModel(
             success=True,
-            data=result,
-            timestamp=datetime.now().isoformat()
+            data={
+                "trains": results,
+                "count": len(results),
+                "pending_approvals": pending_list,
+            },
+            timestamp=datetime.now().isoformat(),
         )
-    
     except Exception as e:
-        return ResponseModel(
-            success=False,
-            error=str(e),
-            timestamp=datetime.now().isoformat()
-        )
+        return ResponseModel(success=False, error=str(e), timestamp=datetime.now().isoformat())
 
-# Specialized endpoints
-@app.post("/api/train-delay", response_model=ResponseModel)
-async def handle_train_delay(delay_request: TrainDelayRequest):
-    """Handle train delay scenario"""
+@app.get("/api/trains", response_model=ResponseModel)
+async def get_all_trains():
+    """Get all currently scheduled trains."""
+    return ResponseModel(
+        success=True,
+        data={"trains": scheduled_trains, "count": len(scheduled_trains)},
+        timestamp=datetime.now().isoformat()
+    )
+
+@app.get("/api/train/pending-approvals", response_model=ResponseModel)
+async def get_pending_approvals():
+    """Get all disaster events awaiting admin approval."""
+    return ResponseModel(
+        success=True,
+        data={"pending": pending_approvals, "count": len(pending_approvals)},
+        timestamp=datetime.now().isoformat()
+    )
+
+@app.post("/api/train/approve-disaster", response_model=ResponseModel)
+async def approve_disaster(req: ApproveDisasterRequest):
+    """Admin approves a reroute option for a disaster train."""
     try:
-        request = f"Train {delay_request.train_number} is delayed by {delay_request.delay_minutes} minutes at {delay_request.current_location}"
-        
-        context = {
-            "train_number": delay_request.train_number,
-            "delay_minutes": delay_request.delay_minutes,
-            "current_location": delay_request.current_location,
-            "affected_passengers": delay_request.affected_passengers
+        pa = pending_approvals.get(req.train_id)
+        if not pa:
+            return ResponseModel(success=False, error=f"No pending approval for train {req.train_id}", timestamp=datetime.now().isoformat())
+
+        # Apply the chosen option
+        from agents.disaster_recovery_agent import DisasterRecoveryAgent
+        from agents.time_prediction_agent import TimePredictionAgent
+        dr_agent = DisasterRecoveryAgent()
+        pred_agent = TimePredictionAgent()
+
+        # Rebuild disaster result for apply
+        disaster_result = {
+            "options": pa["options"],
+            "recommended_option": pa["recommended_option"],
+            "root_cause": pa["root_cause"],
+            "safety_notes": pa["safety_notes"],
         }
-        
-        result = orchestrator.run(request, context)
-        
+        updated = dr_agent.apply_approved_option(disaster_result, req.option_id)
+
+        # Re-predict with new route
+        config = pa["config"]
+        new_sched = updated.get("new_schedule", {})
+        extra_km = updated.get("alternate_route", {}).get("estimated_detour_km", 0)
+        distance = config.get("distance_km", 500.0) + extra_km
+        re_pred = pred_agent.predict_arrival(
+            train_id=req.train_id,
+            speed_kmh=config.get("speed_kmh", 60.0),
+            distance_km=distance,
+            stops=config.get("stops", 3) + 2,
+            halt_duration_minutes=config.get("halt_duration_minutes", 5.0),
+            track_condition=config.get("track_condition", "fair"),
+            weather=config.get("weather", "clear"),
+            congestion="moderate",
+            departure_time=new_sched.get("new_departure_time", "08:00"),
+        )
+        re_pred["is_re_prediction"] = True
+
+        # Build affected trains cascade info
+        affected_trains = updated.get("affected_trains", [])
+        cascade_updates = []
+        for at in affected_trains:
+            at_id = at.get("train_id", "unknown")
+            if at_id in scheduled_trains:
+                # Update the affected train's monitoring status
+                st = scheduled_trains[at_id]
+                if "results" in st and "monitoring" in st["results"]:
+                    st["results"]["monitoring"]["delay_minutes"] = (
+                        st["results"]["monitoring"].get("delay_minutes", 0) + at.get("delay_minutes", 0)
+                    )
+                    st["results"]["monitoring"]["status"] = "Delayed"
+                    st["results"]["monitoring"]["risk_level"] = "Medium"
+                    st["results"]["monitoring"]["reroute_cascade"] = True
+                    st["results"]["monitoring"]["cascade_source"] = req.train_id
+            cascade_updates.append({
+                "train_id": at_id,
+                "impact": at.get("impact", "delayed"),
+                "delay_minutes": at.get("delay_minutes", 0),
+                "passengers_affected": at.get("passengers_affected", 0),
+            })
+
+        # Update main train result
+        if req.train_id in scheduled_trains:
+            scheduled_trains[req.train_id]["results"]["time_prediction"] = re_pred
+            scheduled_trains[req.train_id]["results"]["disaster_recovery"]["approval_status"] = "approved"
+            scheduled_trains[req.train_id]["results"]["disaster_recovery"]["approved_option"] = updated.get("approved_option", {})
+            scheduled_trains[req.train_id]["results"]["disaster_recovery"]["approved_at"] = datetime.now().isoformat()
+            scheduled_trains[req.train_id]["route_status"] = "rerouted"
+
+        # Remove from pending
+        del pending_approvals[req.train_id]
+
+        # Broadcast the approval
+        await broadcast_ws({
+            "type": "disaster_approved",
+            "train_id": req.train_id,
+            "option_id": req.option_id,
+            "cascade_updates": cascade_updates,
+            "timestamp": datetime.now().isoformat(),
+        })
+
         return ResponseModel(
             success=True,
-            data=result,
-            timestamp=datetime.now().isoformat()
+            data={
+                "train_id": req.train_id,
+                "approved_option": updated.get("approved_option", {}),
+                "re_prediction": re_pred,
+                "cascade_updates": cascade_updates,
+                "approval_type": "manual",
+                "updated_train": scheduled_trains.get(req.train_id),
+            },
+            timestamp=datetime.now().isoformat(),
         )
-    
     except Exception as e:
-        return ResponseModel(
-            success=False,
-            error=str(e),
-            timestamp=datetime.now().isoformat()
-        )
+        return ResponseModel(success=False, error=str(e), timestamp=datetime.now().isoformat())
 
-@app.post("/api/passenger-query", response_model=ResponseModel)
-async def handle_passenger_query(query_request: PassengerQueryRequest):
-    """Handle passenger queries using RAG"""
-    try:
-        request = query_request.query
-        context = {}
-        if query_request.passenger_id:
-            context["passenger_id"] = query_request.passenger_id
-        
-        result = orchestrator.run(request, context)
-        
-        return ResponseModel(
-            success=True,
-            data=result,
-            timestamp=datetime.now().isoformat()
-        )
-    
-    except Exception as e:
-        return ResponseModel(
-            success=False,
-            error=str(e),
-            timestamp=datetime.now().isoformat()
-        )
+@app.post("/api/train/auto-approve-disaster", response_model=ResponseModel)
+async def auto_approve_disaster(req: ApproveDisasterRequest):
+    """System auto-approves the recommended option after admin timeout."""
+    # Same logic as manual approve, just tagged as auto
+    result = await approve_disaster(req)
+    if result.data:
+        result.data["approval_type"] = "auto"
+    return result
 
+# ── WebSocket ──
 
-@app.post("/api/send-alert", response_model=ResponseModel)
-async def send_alert(alert_request: AlertRequest):
-    """Send alerts through multiple channels"""
-    try:
-        request = f"Send alert: {alert_request.message}"
-        
-        context = {
-            "message": alert_request.message,
-            "recipients": alert_request.recipients,
-            "channels": alert_request.channels
-        }
-        
-        result = orchestrator.run(request, context)
-        
-        return ResponseModel(
-            success=True,
-            data=result,
-            timestamp=datetime.now().isoformat()
-        )
-    
-    except Exception as e:
-        return ResponseModel(
-            success=False,
-            error=str(e),
-            timestamp=datetime.now().isoformat()
-        )
+async def broadcast_ws(message: dict):
+    """Broadcast a message to all connected WebSocket clients."""
+    for conn in active_connections:
+        try:
+            await conn.send_json(message)
+        except Exception:
+            pass
 
-# Agent status endpoints
-@app.get("/api/agents/status")
-async def get_agents_status():
-    """Get status of all agents"""
-    return {
-        "planner": {"status": "active", "description": "Master coordinator"},
-        "operations": {"status": "active", "description": "Train operations management"},
-        "passenger": {"status": "active", "description": "Customer service with RAG"},
-        "alert": {"status": "active", "description": "Multi-channel alerts"},
-        "timestamp": datetime.now().isoformat()
-    }
-
-# RAG endpoints
-@app.get("/api/rag/query")
-async def query_rag(query: str):
-    """Query RAG system directly"""
-    try:
-        if not rag_system:
-            raise HTTPException(status_code=503, detail="RAG system not initialized")
-        
-        results = rag_system.query(query)
-        
-        return {
-            "success": True,
-            "query": query,
-            "results": results,
-            "timestamp": datetime.now().isoformat()
-        }
-    
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }
-
-# WebSocket endpoint for real-time updates
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket for real-time updates"""
     await websocket.accept()
     active_connections.append(websocket)
-    
     try:
         while True:
-            # Keep connection alive and send periodic updates
-            await websocket.send_json({
-                "type": "heartbeat",
-                "timestamp": datetime.now().isoformat()
-            })
+            await websocket.send_json({"type": "heartbeat", "timestamp": datetime.now().isoformat()})
             await asyncio.sleep(30)
-    
     except WebSocketDisconnect:
         active_connections.remove(websocket)
 
-async def broadcast_update(data: Dict[str, Any]):
-    """Broadcast updates to all connected WebSocket clients"""
-    for connection in active_connections:
-        try:
-            await connection.send_json(data)
-        except:
-            active_connections.remove(connection)
+# ── Demo Scenarios ──
 
-# Demo scenarios
 @app.get("/api/demo/scenarios")
 async def get_demo_scenarios():
-    """Get list of demo scenarios"""
     return {
         "scenarios": [
             {
-                "id": "delay",
-                "name": "Train Delay",
-                "description": "Handle train delay with automated responses",
-                "example": {
-                    "train_number": "12627",
-                    "delay_minutes": 45,
-                    "current_location": "Katpadi"
-                }
+                "id": "normal_flow",
+                "name": "Normal On-Time Flow",
+                "description": "Schedule → Predict → Monitor (on-time)",
+                "example": {"train_id": "12627", "source": "Bangalore", "destination": "New Delhi"}
             },
             {
-                "id": "passenger",
-                "name": "Passenger Query",
-                "description": "Answer passenger questions using RAG",
-                "example": {
-                    "query": "What is the refund policy for cancelled trains?"
-                }
+                "id": "delay_flow",
+                "name": "Delay → Disaster Recovery",
+                "description": "Schedule → Predict → Monitor (delayed) → Disaster → Re-predict",
+                "example": {"train_id": "12650", "source": "Yesvantpur", "destination": "New Delhi", "weather": "heavy_rain"}
             },
-
             {
-                "id": "emergency",
-                "name": "Emergency Alert",
-                "description": "Multi-channel emergency notifications",
-                "example": {
-                    "message": "Track maintenance on Platform 3",
-                    "channels": ["sms", "email", "push"]
-                }
-            }
+                "id": "disaster_flow",
+                "name": "Critical Track Damage",
+                "description": "Full disaster recovery with re-routing",
+                "example": {"train_id": "22691", "source": "Bangalore", "destination": "Chennai", "failure_type": "track_damage"}
+            },
         ]
     }
 
+# Mount static files (CSS, JS)
+app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "server:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

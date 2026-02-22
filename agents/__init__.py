@@ -1,12 +1,12 @@
-"""Agents module initialization"""
-from .planner_agent import PlannerAgent
-from .operations_agent import OperationsAgent
-from .passenger_agent import PassengerAgent
-from .alert_agent import AlertAgent
+"""Agents module initialization — Train Management System"""
+from .scheduling_agent import SchedulingAgent
+from .time_prediction_agent import TimePredictionAgent
+from .arrival_monitoring_agent import ArrivalMonitoringAgent
+from .disaster_recovery_agent import DisasterRecoveryAgent
 
 __all__ = [
-    'PlannerAgent',
-    'OperationsAgent',
-    'PassengerAgent',
-    'AlertAgent'
+    'SchedulingAgent',
+    'TimePredictionAgent',
+    'ArrivalMonitoringAgent',
+    'DisasterRecoveryAgent',
 ]

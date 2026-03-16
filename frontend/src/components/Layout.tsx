@@ -6,12 +6,14 @@ import {
   BellIcon,
   CpuChipIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  TableCellsIcon
 } from '@heroicons/react/24/outline'
 import { useState } from 'react'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
+  { name: 'Timetable', href: '/timetable', icon: TableCellsIcon },
   { name: 'Train Delay', href: '/train-delay', icon: ClockIcon },
   { name: 'Passenger Query', href: '/passenger-query', icon: UserGroupIcon },
   { name: 'Alerts', href: '/alerts', icon: BellIcon },

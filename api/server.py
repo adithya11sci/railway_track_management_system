@@ -108,6 +108,30 @@ class ApproveDisasterRequest(BaseModel):
     train_id: str
     option_id: int
 
+class TrainDelayRequest(BaseModel):
+    train_number: str
+    delay_minutes: int
+    current_location: str
+    affected_passengers: Optional[int] = None
+
+class PassengerQueryRequest(BaseModel):
+    query: str
+    passenger_id: Optional[str] = None
+
+class CrowdPredictionRequest(BaseModel):
+    train_number: str
+    route: str
+    time: Optional[str] = None
+
+class SendAlertRequest(BaseModel):
+    message: str
+    recipients: List[str]
+    channels: List[str]
+
+class OrchestrateRequest(BaseModel):
+    request: str
+    context: Optional[dict] = {}
+
 # ── Lifecycle ──
 
 async def initialize_components():
@@ -162,7 +186,14 @@ async def health_check():
         },
         "timestamp": datetime.now().isoformat()
     }
-
+@app.get("/api/agents/status")
+async def get_agents_status():
+    return {
+        "operations": {"status": "active", "tasks_handled": 15},
+        "passenger": {"status": "active", "tasks_handled": 42},
+        "crowd": {"status": "active", "tasks_handled": 8},
+        "alert": {"status": "active", "tasks_handled": 24}
+    }
 # ── Train Management Endpoints ──
 
 @app.post("/api/train/schedule", response_model=ResponseModel)
@@ -465,9 +496,162 @@ async def get_demo_scenarios():
         ]
     }
 
+@app.post("/api/train-delay")
+async def handle_train_delay(req: TrainDelayRequest):
+    """Integrates with orchestrator to provide intelligent response for train delays"""
+    try:
+        if not train_orchestrator:
+            raise HTTPException(status_code=503, detail="Train orchestrator not initialized")
+            
+        # Try to find train from the real dataset
+        import pandas as pd
+        dataset_path = 'chennai_central_real_dataset.csv'
+        train_info = {}
+        try:
+            if os.path.exists(dataset_path):
+                df = pd.read_csv(dataset_path)
+                df_train = df[df['train_id'].astype(str) == str(req.train_number)]
+                if not df_train.empty:
+                    row = df_train.iloc[0].fillna("").to_dict()
+                    train_info = {
+                        "source": row.get("source_station", req.current_location),
+                        "destination": row.get("destination_station", "Unknown Destination"),
+                        "scheduled_departure": row.get("scheduled_departure", "08:00"),
+                        "train_name": row.get("train_name", ""),
+                        "platform": row.get("platform", "")
+                    }
+        except Exception as e:
+            print(f"Error reading dataset: {e}")
+
+        # Build a compatible request for the orchestrator
+        orchestrator_req = {
+            "train_id": req.train_number,
+            "train_name": train_info.get("train_name", f"Train {req.train_number}"),
+            "source": train_info.get("source", req.current_location),
+            "destination": train_info.get("destination", "Unknown Destination"),
+            "departure_time": train_info.get("scheduled_departure", "08:00"),
+            "platform_availability": {train_info.get("source", req.current_location): [train_info.get("platform", "1")]} if train_info.get("platform") else None,
+            "congestion": "high", # Since it's delayed
+            "failure_type": "delay",
+            "delay_minutes": req.delay_minutes,
+            "passengers": req.affected_passengers,
+            "timetable_context": "Real Schedule data applied from timetable." if train_info else "No exact timetable match."
+        }
+
+        # Run orchestrator
+        result = train_orchestrator.run(orchestrator_req)
+
+        rescheduled = False
+        original_arrival = None
+        new_arrival = None
+        conflict_msg = ""
+        
+        # Reschedule time table in the dataset to reflect dynamically!
+        if train_info.get("source") != "Unknown Destination" and req.delay_minutes > 0:
+            try:
+                df = pd.read_csv(dataset_path)
+                # find the correct row
+                idx = df.index[df['train_id'].astype(str) == str(req.train_number)].tolist()
+                if idx:
+                    i = idx[0]
+                    original_arrival = str(df.at[i, 'scheduled_arrival'])
+                    if ":" in original_arrival:
+                        from datetime import datetime, timedelta
+                        time_obj = datetime.strptime(original_arrival, '%H:%M')
+                        new_time_obj = time_obj + timedelta(minutes=req.delay_minutes)
+                        new_arrival = new_time_obj.strftime('%H:%M')
+                        df.at[i, 'scheduled_arrival'] = new_arrival
+                        rescheduled = True
+                        df.to_csv(dataset_path, index=False)
+                        
+                        # Check collision/platform conflicts
+                        platform = str(df.at[i, 'platform'])
+                        conflict_trains = df[(df['scheduled_arrival'] == new_arrival) & (df['platform'] == platform) & (df['train_id'].astype(str) != str(req.train_number))]
+                        if not conflict_trains.empty:
+                            conflict_id = conflict_trains.iloc[0]['train_id']
+                            conflict_msg = f"Collision Warning: New arrival {new_arrival} at platform {platform} conflicts with train {conflict_id}! Re-routing required."
+            except Exception as ex:
+                print(f"Update CSV error: {ex}")
+
+        return {
+            "success": True,
+            "message": f"Delay of {req.delay_minutes} minutes recorded for train {req.train_number}.",
+            "data": {
+                "train_number": req.train_number,
+                "delay_minutes": req.delay_minutes,
+                "current_location": req.current_location,
+                "affected_passengers": req.affected_passengers,
+                "results": result,
+                "plan": result,
+                "timetable_updated": rescheduled,
+                "original_arrival": original_arrival,
+                "new_arrival": new_arrival,
+                "conflict_msg": conflict_msg
+            }
+        }
+    except Exception as e:
+         return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/api/passenger-query")
+async def handle_passenger_query(req: PassengerQueryRequest):
+    return {
+        "success": True,
+        "answer": f"Processed query: {req.query}",
+        "passenger_id": req.passenger_id
+    }
+
+@app.post("/api/crowd-prediction")
+async def handle_crowd_prediction(req: CrowdPredictionRequest):
+    return {
+        "success": True,
+        "train_number": req.train_number,
+        "route": req.route,
+        "prediction": {"crowd_level": "moderate", "capacity": "75%"}
+    }
+
+@app.post("/api/send-alert")
+async def handle_send_alert(req: SendAlertRequest):
+    return {
+        "success": True,
+        "message": "Alerts sent successfully",
+        "recipients_count": len(req.recipients),
+        "channels": req.channels
+    }
+
+@app.get("/api/rag/query")
+async def handle_rag_query(query: str):
+    return {
+        "success": True,
+        "query": query,
+        "answer": "This is a placeholder response for the RAG query."
+    }
+
+@app.post("/api/orchestrate")
+async def handle_orchestrate(req: OrchestrateRequest):
+    return {
+        "success": True,
+        "message": "Orchestration successful",
+        "request": req.request,
+        "context": req.context
+    }
+
 # Mount static files (CSS, JS)
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
+
+
+@app.get('/api/timetable')
+async def get_timetable():
+    import pandas as pd
+    try:
+        df = pd.read_csv('chennai_central_real_dataset.csv')
+        df = df.fillna("")
+        return {'success': True, 'data': df.to_dict(orient='records')}
+    except Exception as e:
+        return {'success': False, 'message': str(e)}

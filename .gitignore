@@ -26,3 +26,10 @@ data/vector_store/
 *.swp
 *.swo
 *~
+
+.env.example
+/env.example
+
+
+
+/vanila_index.html

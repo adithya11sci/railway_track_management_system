@@ -173,45 +173,94 @@ export default function TrainDelay() {
 
           {result && (
             <div className="space-y-4">
-              {/* Operations Analysis */}
-              {result.results?.operations && result.results.operations.length > 0 && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-orange-900 mb-2">Operations Analysis</h3>
-                  <div className="text-sm text-orange-800 space-y-2">
-                    {result.results.operations.map((op: any, idx: number) => (
-                      <div key={idx} className="whitespace-pre-wrap">
-                        {/* Handle both mock string result and real dict result */}
-                        {typeof op === 'string' ? op : (
-                          <div>
-                            <span className="font-bold">{op.task}:</span> {JSON.stringify(op)}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+              
+              {/* Intelligent Agent Execution Report */}
+              <div className="bg-white border text-left border-gray-200 shadow-sm rounded-lg p-5 mt-4 text-gray-800">
+                <div className="flex items-center space-x-2 mb-4 border-b pb-2">
+                  <ClockIcon className="h-6 w-6 text-blue-600" />
+                  <h3 className="text-xl font-semibold text-gray-800">AI Response & Orchestration</h3>
+                </div>
+
+                {/* General Info */}
+                <div className="grid grid-cols-2 gap-4 mb-4 bg-gray-50 p-3 rounded-md">
+                  <div>
+                    <span className="text-xs font-semibold uppercase text-gray-500 block">Train Identifier</span>
+                    <span className="text-sm font-medium">{result.train_number}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold uppercase text-gray-500 block">Agent Route Status</span>
+                    <span className="text-sm px-2 py-1 bg-green-100 text-green-700 font-bold rounded">
+                      {result?.plan?.route_status?.replace('_', ' ').toUpperCase() || 'PROCESSED'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold uppercase text-gray-500 block">Disaster Triggered</span>
+                    <span className="text-sm font-medium">{result?.plan?.disaster_triggered ? 'Yes 🚨' : 'No ✔️'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold uppercase text-gray-500 block">Orchestrator Loops</span>
+                    <span className="text-sm font-medium">{result?.plan?.iteration || 1} Iteration(s)</span>
                   </div>
                 </div>
-              )}
 
-              {/* Alerts Sent */}
-              {result.results?.alert && result.results.alert.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-red-900 mb-2">Alerts Sent</h3>
-                  <div className="text-sm text-red-800 space-y-2">
-                    {result.results.alert.map((alert: any, idx: number) => (
-                      <div key={idx} className="whitespace-pre-wrap">
-                        {typeof alert === 'string' ? alert : JSON.stringify(alert, null, 2)}
-                      </div>
-                    ))}
+                {/* Scheduling / Route Impact*/}
+                {result?.plan?.results?.scheduling && (
+                  <div className="mb-4 text-sm mt-4">
+                     <h4 className="font-semibold text-blue-800 flex items-center mb-2">📋 Scheduling Insight</h4>
+                     <ul className="list-disc list-inside ml-4 space-y-1 text-gray-600">
+                       <li><span className="font-semibold text-gray-800">Route Assigned:</span> {result.plan.results.scheduling.assigned_route?.source} to {result.plan.results.scheduling.assigned_route?.destination}</li>
+                       <li><span className="font-semibold text-gray-800">Departure:</span> {result.plan.results.scheduling.scheduled_departure} | <span className="font-semibold text-gray-800">Arrival:</span> {result.plan.results.scheduling.estimated_arrival}</li>
+                     </ul>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Plan Summary / Debug */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4">
-                <h3 className="font-semibold text-gray-700 mb-2">Execution Plan</h3>
-                <pre className="text-xs text-gray-600 overflow-auto max-h-40">
-                  {JSON.stringify(result.plan, null, 2)}
-                </pre>
+                {/* Predication Output */}
+                {result?.plan?.results?.prediction && (
+                   <div className="mb-4 text-sm bg-indigo-50 border border-indigo-100 p-3 rounded-md">
+                     <h4 className="font-semibold text-indigo-800 flex items-center mb-2">⏱️ Live AI Prediction</h4>
+                     <p className="text-indigo-900 mb-1"><span className="font-semibold">Expected Platform Arrival:</span> {result.plan.results.prediction.predicted_arrival_time}</p>
+                     <p className="text-indigo-900 mb-1"><span className="font-semibold">Analysis:</span> {result.plan.results.prediction.prediction_reasoning}</p>
+                     <div className="mt-2 text-xs font-mono text-indigo-700">Calculated under {result.plan.results.prediction.weather_conditions} conditions, with {result.plan.results.prediction.congestion_level} congestion.</div>
+                   </div>
+                )}
+
+                {/* Monitoring Report */}
+                {result?.plan?.results?.monitoring && (
+                   <div className="mb-4 text-sm bg-yellow-50 border border-yellow-100 p-3 rounded-md">
+                      <h4 className="font-semibold text-yellow-800 flex items-center mb-2">📡 Arrival Monitoring Report</h4>
+                      <p className="text-yellow-900 mb-1"><span className="font-semibold">Status:</span> {result.plan.results.monitoring.status}</p>
+                      <p className="text-yellow-900 mb-1"><span className="font-semibold">Delay Detected:</span> {result.plan.results.monitoring.delay_minutes} minutes</p>
+                      <p className="text-yellow-900"><span className="font-semibold">Risk Level Assessment:</span> {result.plan.results.monitoring.risk_level}</p>
+                   </div>
+                )}
+                
+                {/* Disaster Response (if applicable) */}
+                {result?.plan?.results?.disaster && result.plan.results.disaster.length > 0 && (
+                   <div className="mb-4 text-sm bg-red-50 border border-red-100 p-3 rounded-md">
+                      <h4 className="font-semibold text-red-800 flex items-center mb-2">🚨 Disaster Recovery Plan Triggered</h4>
+                      <p className="text-red-900">{typeof result.plan.results.disaster === 'string' ? result.plan.results.disaster : JSON.stringify(result.plan.results.disaster)}</p>
+                   </div>
+                )}
+
+                {/* Dynamic Timetable Update UI */}
+                {result?.timetable_updated && (
+                   <div className={`mt-4 p-4 border rounded-md shadow-sm ${result.conflict_msg ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                      <h4 className={`font-bold text-lg mb-2 ${result.conflict_msg ? 'text-red-800' : 'text-green-800'}`}>
+                        {result.conflict_msg ? '⚠️ Critical Collision Detected' : '✅ Timetable Successfully Rescheduled'}
+                      </h4>
+                      <div className="text-sm text-gray-700">
+                         <p>The core Timetable Dataset was dynamically updated.</p>
+                         <p className="mt-1"><strong>Train {result.train_number}</strong> original arrival slot of <span className="line-through text-gray-500">{result.original_arrival}</span> has been patched to <span className="font-bold text-black">{result.new_arrival}</span>.</p>
+                         {result.conflict_msg && (
+                           <div className="mt-2 p-2 bg-red-100 text-red-900 rounded border border-red-300">
+                             <strong>URGENT AGENT ACTION:</strong> {result.conflict_msg}
+                             <br/><span className="text-xs text-red-700 mt-1 block">Live tracking dashboard dataset updated to route conflict via alternate track.</span>
+                           </div>
+                         )}
+                         <p className="mt-3 text-xs opacity-75">Check the <i>Timetable</i> view on the sidebar, where the modified time is actively synchronized!</p>
+                      </div>
+                   </div>
+                )}
               </div>
             </div>
           )}

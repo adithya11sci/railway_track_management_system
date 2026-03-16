@@ -1,0 +1,33 @@
+date,station,station_code,train_id,train_name,train_type,source_station,source_code,destination_station,destination_code,scheduled_arrival,scheduled_departure,halt_minutes,direction,runs_sunday,runs_monday,runs_tuesday,runs_wednesday,runs_thursday,runs_friday,runs_saturday,runs_today,available_classes,railway_zone,platform
+2026-03-16,Chennai Central,MAS,12839,HWH MAS EXP,Express,Howrah,HWH,Chennai Central,MAS,04:05,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,3E,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,22652,PGT MAS EXPRESS,Express,Palakkad,PGT,Chennai Central,MAS,03:45,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12658,CHENNAI MAIL,Mail Express,Bangalore City,SBC,Chennai Central,MAS,04:05,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,22650,YERCAUD EXP,Express,Erode,ED,Chennai Central,MAS,04:25,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12616,GRAND TRUNK EXP,Express,New Delhi,NDLS,Chennai Central,MAS,04:40,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12655,NAVJEEVAN EXP,Express,Ahmedabad,ADI,Chennai Central,MAS,05:10,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,3E,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,16093,LUCKNOW EXP,Express,Chennai Central,MAS,Lucknow,LJN,--,05:10,0,Departure,X,X,Y,X,X,X,Y,X,"2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,16031,ANDAMAN EXPRESS,Express,Chennai Central,MAS,Shri Mata Vaishno Devi Katra,SVDK,--,05:10,0,Departure,Y,X,X,Y,Y,X,X,X,"2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,22640,CHENNAI EXPRESS,Express,Alappuzha,ALLP,Chennai Central,MAS,05:15,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,20677,NS VANDEBHARAT,Premium Express,Chennai Central,MAS,Nagercoil,NS,--,05:30,0,Departure,Y,Y,X,Y,Y,Y,Y,Y,"EC,CC",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12604,CHENNAI SF EXP,Superfast Express,Chalakudi,CHZ,Chennai Central,MAS,05:40,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,20607,MYS VANDEBHARAT,Premium Express,Chennai Central,MAS,Mysuru,MYS,--,05:50,0,Departure,Y,Y,Y,X,Y,Y,Y,Y,"EC,CC",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12611,NZM GARIB RATH,Garib Rath,Chennai Central,MAS,Hazrat Nizamuddin,NZM,--,06:00,0,Departure,X,X,X,X,X,X,Y,X,3A,Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12007,SHATABDI EXP,Premium Express,Chennai Central,MAS,Mysuru,MYS,--,06:00,0,Departure,Y,Y,Y,Y,X,Y,Y,Y,"EA,EC,CC",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12433,RAJDHANI EXP,Rajdhani Express,Chennai Central,MAS,Hazrat Nizamuddin,NZM,--,06:05,0,Departure,Y,X,X,X,X,Y,X,X,"1A,2A,3A",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12602,CHENNAI MAIL,Mail Express,Mangaluru,MAQ,Chennai Central,MAS,06:10,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12675,KOVAI EXPRESS,Express,Chennai Central,MAS,Coimbatore,CBE,--,06:10,0,Departure,Y,Y,Y,Y,Y,Y,Y,Y,"CC,2S",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12672,NILAGIRI EXP,Express,Mettupalayam,MTP,Chennai Central,MAS,06:25,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,3E,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,16057,SAPTHAGIRI EXP,Express,Chennai Central,MAS,Tirupati,TPTY,--,06:30,0,Departure,Y,Y,Y,Y,Y,Y,Y,Y,"CC,2S",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12269,DURONTO EXPRESS,Duronto Express,Chennai Central,MAS,Hazrat Nizamuddin,NZM,--,06:35,0,Departure,X,Y,X,X,X,Y,X,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12622,TAMIL NADU EXP,Express,New Delhi,NDLS,Chennai Central,MAS,06:35,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,3E,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,16022,KAVERI EXPRESS,Express,Arakonam,AP,Chennai Central,MAS,06:45,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12842,COROMANDEL EXP,Superfast Express,Chennai Central,MAS,Howrah,HWH,--,07:00,0,Departure,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,3E,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12674,CHERAN EXPRESS,Express,Coimbatore,CBE,Chennai Central,MAS,07:00,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,16032,ANDAMAN EXPRESS,Express,Shri Mata Vaishno Devi Katra,SVDK,Chennai Central,MAS,07:00,--,0,Arrival,X,Y,Y,X,X,Y,X,Y,"2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12243,SHATABDI EXP,Premium Express,Chennai Central,MAS,Coimbatore,CBE,--,07:15,0,Departure,Y,Y,X,Y,Y,Y,Y,Y,"EC,CC",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,22625,SBC DOUBLE DECK,Double Decker,Chennai Central,MAS,Bangalore City,SBC,--,07:25,0,Departure,Y,Y,Y,Y,Y,Y,Y,Y,"CC,2S",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12077,JAN SHATABDI,Premium Express,Chennai Central,MAS,Vijayawada,BZA,--,07:25,0,Departure,Y,Y,X,Y,Y,Y,Y,Y,"CC,2S",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12639,BRINDAVAN EXP,Express,Chennai Central,MAS,Bangalore City,SBC,--,07:40,0,Departure,Y,Y,Y,Y,Y,Y,Y,Y,"CC,2S",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12624,CHENNAI MAIL,Mail Express,Thiruvananthapuram,TVC,Chennai Central,MAS,07:45,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,12686,CHENNAI EXP,Express,Mangaluru,MAQ,Chennai Central,MAS,08:05,--,0,Arrival,Y,Y,Y,Y,Y,Y,Y,Y,"1A,2A,3A,3E,SL",Southern Railway (SR),MAS
+2026-03-16,Chennai Central,MAS,22808,MAS SRC AC EXP,Express,Chennai Central,MAS,Santragachi,SRC,--,08:15,0,Departure,Y,X,X,X,Y,X,X,X,"1A,2A,3A",Southern Railway (SR),MAS

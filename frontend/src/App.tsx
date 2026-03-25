@@ -7,6 +7,7 @@ import PassengerQuery from './pages/PassengerQuery'
 import Alerts from './pages/Alerts'
 import Agents from './pages/Agents'
 import Timetable from './pages/Timetable'
+import TrainDetails from './pages/TrainDetails'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="alerts" element={<Alerts />} />
           <Route path="agents" element={<Agents />} />
           <Route path="timetable" element={<Timetable />} />
+          <Route path="train/:id" element={<TrainDetails />} />
         </Route>
       </Routes>
     </Router>

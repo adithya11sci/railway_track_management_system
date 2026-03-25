@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const Timetable = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch('http://localhost:8000/api/timetable')
@@ -43,8 +45,12 @@ const Timetable = () => {
           </thead>
           <tbody>
             {data.slice(0, 50).map((row, i) => (
-              <tr key={i} className="bg-white border-b hover:bg-gray-50">
-                <td className="px-6 py-4 font-medium text-gray-900">
+              <tr 
+                key={i} 
+                className="bg-white border-b hover:bg-indigo-50 cursor-pointer transition-colors"
+                onClick={() => navigate(`/train/${row.train_id}`)}
+              >
+                <td className="px-6 py-4 font-medium text-indigo-600">
                   {row.train_id} - {row.train_name}
                 </td>
                 <td className="px-6 py-4">{row.train_type}</td>

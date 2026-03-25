@@ -655,3 +655,55 @@ async def get_timetable():
         return {'success': True, 'data': df.to_dict(orient='records')}
     except Exception as e:
         return {'success': False, 'message': str(e)}
+
+@app.get('/api/train/{train_id}')
+async def get_train_details(train_id: str):
+    import pandas as pd
+    try:
+        df = pd.read_csv('chennai_central_real_dataset.csv')
+        df = df.fillna("")
+        
+        # Filter for the specific train
+        train_data = df[df['train_id'].astype(str) == str(train_id)]
+        
+        if train_data.empty:
+            return {'success': False, 'message': 'Train not found'}
+            
+        row = train_data.iloc[0].to_dict()
+        
+        # We can also generate a simulated current status/position
+        import random
+        
+        # Use actual route data
+        stops_str = row.get('intermediate_stops', '')
+        inter_stops = [s.strip() for s in stops_str.split(',') if s.strip()] if stops_str else []
+        
+        stations = [row.get('source_station', 'Start')] + inter_stops + [row.get('destination_station', 'End')]
+        current_idx = random.randint(0, max(0, len(stations) - 2)) if len(stations) > 1 else 0
+        current_station = stations[current_idx]
+        next_station = stations[current_idx + 1] if current_idx + 1 < len(stations) else current_station
+        
+        # Calculate segmented progress
+        segments_count = len(stations) - 1 if len(stations) > 1 else 1
+        base_progress = (current_idx / segments_count) * 100
+        segment_progress = (random.randint(10, 90) / 100.0) * (100 / segments_count)
+        progress_percent = min(100.0, base_progress + segment_progress)
+        
+        return {
+            'success': True, 
+            'data': {
+                'info': row,
+                'simulation': {
+                    'all_stations': stations,
+                    'current_station': current_station,
+                    'next_station': next_station,
+                    'progress_percent': round(progress_percent, 1),
+                    'status': random.choice(['On Time', 'Slight Delay', 'On Time']),
+                    'avg_speed': row.get('avg_speed_kmh', 'N/A'),
+                    'distance': row.get('route_distance_km', 'N/A'),
+                    'duration': row.get('journey_duration_hrs', 'N/A')
+                }
+            }
+        }
+    except Exception as e:
+        return {'success': False, 'message': str(e)}

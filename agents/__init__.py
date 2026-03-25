@@ -1,12 +1,14 @@
 """Agents module initialization — Train Management System"""
-from .scheduling_agent import SchedulingAgent
-from .time_prediction_agent import TimePredictionAgent
-from .arrival_monitoring_agent import ArrivalMonitoringAgent
-from .disaster_recovery_agent import DisasterRecoveryAgent
+from .data_ingestion_agent import DataIngestionAgent
+from .conflict_detection_agent import ConflictDetectionAgent
+from .priority_evaluation_agent import PriorityEvaluationAgent
+from .rescheduling_agent import ReschedulingAgent
+from .validation_agent import ValidationAgent
 
 __all__ = [
-    'SchedulingAgent',
-    'TimePredictionAgent',
-    'ArrivalMonitoringAgent',
-    'DisasterRecoveryAgent',
+    'DataIngestionAgent',
+    'ConflictDetectionAgent',
+    'PriorityEvaluationAgent',
+    'ReschedulingAgent',
+    'ValidationAgent',
 ]

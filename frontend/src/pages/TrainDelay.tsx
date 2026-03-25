@@ -69,7 +69,7 @@ export default function TrainDelay() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="space-y-6">
         {/* Input Form */}
         <div className="card">
           <div className="flex items-center mb-4">
@@ -78,78 +78,84 @@ export default function TrainDelay() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Train Number *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.train_number}
-                onChange={(e) => setFormData({ ...formData, train_number: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., 12627"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Train Number *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.train_number}
+                  onChange={(e) => setFormData({ ...formData, train_number: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., 12627"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Delay (minutes) *
+                </label>
+                <input
+                  type="number"
+                  required
+                  value={formData.delay_minutes}
+                  onChange={(e) => setFormData({ ...formData, delay_minutes: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., 45"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Delay (minutes) *
-              </label>
-              <input
-                type="number"
-                required
-                value={formData.delay_minutes}
-                onChange={(e) => setFormData({ ...formData, delay_minutes: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., 45"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Location *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.current_location}
+                  onChange={(e) => setFormData({ ...formData, current_location: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Katpadi Junction"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Affected Passengers (optional)
+                </label>
+                <input
+                  type="number"
+                  value={formData.affected_passengers}
+                  onChange={(e) => setFormData({ ...formData, affected_passengers: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., 850"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Current Location *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.current_location}
-                onChange={(e) => setFormData({ ...formData, current_location: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., Katpadi Junction"
-              />
+            <div className="flex justify-center pt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full md:w-1/3 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : (
+                  'Process Delay'
+                )}
+              </button>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Affected Passengers (optional)
-              </label>
-              <input
-                type="number"
-                value={formData.affected_passengers}
-                onChange={(e) => setFormData({ ...formData, affected_passengers: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., 850"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </span>
-              ) : (
-                'Process Delay'
-              )}
-            </button>
           </form>
         </div>
 
@@ -203,6 +209,18 @@ export default function TrainDelay() {
                   </div>
                 </div>
 
+                {/* AI Justification (New) */}
+                {result?.multi_agent_pipeline?.ai_justification && (
+                  <div className="mb-4 text-sm bg-blue-50 border border-blue-100 p-4 rounded-md shadow-inner">
+                    <h4 className="font-bold text-blue-900 flex items-center mb-2">
+                       <span className="mr-2">🤖</span> AI Agent Reasoning & Justification
+                    </h4>
+                    <p className="text-blue-800 leading-relaxed italic">
+                      "{result.multi_agent_pipeline.ai_justification}"
+                    </p>
+                  </div>
+                )}
+
                 {/* Scheduling / Route Impact*/}
                 {result?.plan?.results?.scheduling && (
                   <div className="mb-4 text-sm mt-4">
@@ -250,7 +268,15 @@ export default function TrainDelay() {
                       </h4>
                       <div className="text-sm text-gray-700">
                          <p>The core Timetable Dataset was dynamically updated.</p>
-                         <p className="mt-1"><strong>Train {result.train_number}</strong> original arrival slot of <span className="line-through text-gray-500">{result.original_arrival}</span> has been patched to <span className="font-bold text-black">{result.new_arrival}</span>.</p>
+                         <p className="mt-1">
+                            <strong>Train {result.train_number}</strong> 
+                            {result.original_arrival !== '--' ? ' arrival slot ' : ' departure slot '}
+                            of <span className="line-through text-gray-500">
+                              {result.original_arrival !== '--' ? result.original_arrival : result.original_departure}
+                            </span> has been patched to <span className="font-bold text-black">
+                              {result.new_arrival !== '--' ? result.new_arrival : result.new_departure}
+                            </span>.
+                          </p>
                          {result.conflict_msg && (
                            <div className="mt-2 p-2 bg-red-100 text-red-900 rounded border border-red-300">
                              <strong>URGENT AGENT ACTION:</strong> {result.conflict_msg}

@@ -7,9 +7,12 @@ import {
   CpuChipIcon,
   Bars3Icon,
   XMarkIcon,
-  TableCellsIcon
+  TableCellsIcon,
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline'
 import { useState } from 'react'
+import authService from '../services/auth'
+import { useNavigate } from 'react-router-dom'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
@@ -22,7 +25,14 @@ const navigation = [
 
 export default function Layout() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const user = authService.getCurrentUser()
+
+  const handleLogout = () => {
+    authService.logout()
+    navigate('/register')
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -32,7 +42,7 @@ export default function Layout() {
           <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
           <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
             <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-xl font-bold text-railway-blue">Railway AI</h2>
+              <h2 className="text-xl font-bold text-railway-blue tracking-tighter">RMS</h2>
               <button onClick={() => setSidebarOpen(false)}>
                 <XMarkIcon className="h-6 w-6" />
               </button>
@@ -67,7 +77,8 @@ export default function Layout() {
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-1 min-h-0 bg-white border-r border-gray-200">
           <div className="flex items-center h-16 px-4 border-b bg-railway-blue">
-            <h1 className="text-xl font-bold text-white">🚂 Railway AI</h1>
+            <img src="/train_logo.jpg" alt="Logo" className="h-10 w-10 mr-3 rounded-lg object-cover" />
+            <span className="text-3xl font-bold text-white tracking-tight">RMS</span>
           </div>
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
@@ -111,15 +122,23 @@ export default function Layout() {
           </button>
           <div className="flex-1 px-4 flex justify-between items-center">
             <div className="flex-1 flex">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                Railway Intelligence System
+              <h2 className="text-2xl font-black text-gray-900 tracking-wider">
+                RMS - RESCHEDULING SYSTEM
               </h2>
             </div>
-            <div className="ml-4 flex items-center space-x-4">
+            <div className="ml-4 flex items-center space-x-6">
               <div className="flex items-center space-x-2">
                 <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-gray-600">System Active</span>
+                <span className="text-sm text-gray-600 font-medium">{user?.username || 'Officer'}</span>
               </div>
+              <button 
+                onClick={handleLogout}
+                className="flex items-center text-sm font-semibold text-red-600 hover:text-red-800 transition-colors"
+                title="Logout"
+              >
+                <ArrowRightOnRectangleIcon className="h-5 w-5 mr-1" />
+                Logout
+              </button>
             </div>
           </div>
         </div>
